@@ -1,0 +1,94 @@
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #4a90e2, #6dd5ed);
+  color: #333;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background: white;
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.1);
+  text-align: center;
+  width: 400px;
+}
+
+input, button {
+  width: 90%;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+}
+
+button {
+  background-color: #4ae28e;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+button:hover {
+  background-color: #357ABD;
+}
+
+a {
+  color: #4a90e2;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: red;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+th {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.btn-group {
+  display: flex;
+  justify-content: center; /* căn giữa */
+  gap: 12px;               /* khoảng cách giữa các nút */
+  margin-top: 16px;
+}
+
+/* nút chung */
+.btn {
+  display: inline-block;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #fff;
+  background-color: #33cc5c;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  vertical-align: middle;
+}
+
+.btn.logout {
+  background-color: #f44336;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
