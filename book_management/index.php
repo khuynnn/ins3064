@@ -4,13 +4,25 @@ include("connection.php");
 
 $message = "";
 
+// Nếu user đã đăng nhập → chuyển thẳng đến dashboard
+if (isset($_SESSION["user"])) {
+    header("Location: dashboard.php");
+    exit();
+}
+
+// Nếu user nhấn nút đăng nhập
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST["username"];
+    $email = $_POST["email"];
     $password = $_POST["password"];
 
-    $result = mysqli_query($link, "SELECT * FROM users WHERE (username='$username') AND password='$password'");
+    $sql = "SELECT * FROM users 
+            WHERE (email='$email' OR username='$email') 
+            AND password='$password'";
+
+    $result = mysqli_query($link, $sql);
+
     if (mysqli_num_rows($result) == 1) {
-        $_SESSION["user"] = $username;
+        $_SESSION["user"] = $email;
         header("Location: dashboard.php");
         exit();
     } else {
@@ -18,7 +30,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -29,12 +40,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 <div class="container">
     <h2>Đăng nhập</h2>
+
     <form method="POST">
-        <input type="text" name="username" placeholder="Username" required><br>
+        <input type="text" name="email" placeholder="Email hoặc Username" required><br>
         <input type="password" name="password" placeholder="Mật khẩu" required><br>
         <button type="submit">Đăng nhập</button>
     </form>
+
     <p class="error"><?= $message ?></p>
+
     <p>Chưa có tài khoản? <a href="signup.php">Đăng ký ngay</a></p>
 </div>
 </body>

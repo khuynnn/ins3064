@@ -21,7 +21,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Thêm người dùng mới
             mysqli_query($link, "INSERT INTO users (fullname, username, email, password) 
                                 VALUES ('$fullname', '$username', '$email', '$password')");
-            $message = "Đăng ký thành công! <a href='login.php'>Đăng nhập ngay</a>";
+            $message = "Đăng ký thành công! <a href='index.php'>Đăng nhập ngay</a>";
         }
     }
 }
@@ -46,7 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <button type="submit">Đăng ký</button>
     </form>
     <p class="error"><?= $message ?></p>
-    <p>Đã có tài khoản? <a href="login.php">Đăng nhập</a></p>
+    <p>Đã có tài khoản? <a href="index.php">Đăng nhập</a></p>
 </div>
 </body>
 </html>
