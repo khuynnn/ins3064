@@ -11,3 +11,4 @@ echo("<br>The smallest number is: ".minOfThree($a, $b, $c));
 
 
 ?>
+
