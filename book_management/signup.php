@@ -1,47 +1,54 @@
 <?php
-// signup.php - Trang đăng ký người dùng mới
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+include 'config.php';
 
-session_start();
-// Nếu đã đăng nhập rồi thì không cho đăng ký, chuyển hướng về dashboard
+// If already logged in, redirect away from signup
 if (isset($_SESSION['user_id'])) {
-    header("Location: dashboard.php");
+    if ($_SESSION['role'] === 'admin') {
+        header("Location: dashboard.php");
+    } else {
+        header("Location: loans_user.php");
+    }
     exit();
 }
 
-require 'config.php';
-
-$error_msg = "";
-$success_msg = "";
-
-// Xử lý khi người dùng gửi form đăng ký
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
-    $password2 = $_POST['password2'] ?? '';
-
-    // Kiểm tra các trường có được điền đầy đủ
-    if (empty($username) || empty($password) || empty($password2)) {
-        $error_msg = "Vui lòng điền đầy đủ thông tin.";
-    } elseif ($password !== $password2) {
-        $error_msg = "Mật khẩu nhập lại không khớp.";
+$signup_error = "";
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $name            = $_POST['name']     ?? '';
+    $username_input  = $_POST['username'] ?? '';
+    $password_input  = $_POST['password'] ?? '';
+    $role_input      = $_POST['role']     ?? '';
+    
+    // Basic validation for empty fields
+    if ($name == "" || $username_input == "" || $password_input == "" || $role_input == "") {
+        $signup_error = "Vui lòng điền đầy đủ thông tin.";
     } else {
-        // Kiểm tra xem username đã tồn tại chưa
-        $username_esc = $mysqli->real_escape_string($username);
-        $res = $mysqli->query("SELECT id FROM users WHERE username = '$username_esc'");
-        if ($res && $res->num_rows > 0) {
-            $error_msg = "Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.";
+        // Check if username already exists (regardless of role)
+        $stmt_check = $conn->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt_check->bind_param("s", $username_input);
+        $stmt_check->execute();
+        $result_check = $stmt_check->get_result();
+        if ($result_check && $result_check->num_rows > 0) {
+            $signup_error = "Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.";
         } else {
-            // Thực hiện đăng ký tài khoản mới
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            // Mặc định người đăng ký qua form này là user thường (is_admin = 0)
-            $insert = $mysqli->query("INSERT INTO users (username, password, is_admin) VALUES ('$username_esc', '$hash', 0)");
-            if ($insert) {
-                // Đăng ký thành công
-                $success_msg = "Đăng ký thành công! Bạn có thể đăng nhập.";
+            // Hash the password before storing (for security)
+            $hashed_password = password_hash($password_input, PASSWORD_DEFAULT);
+            // Insert new user into database
+            $stmt = $conn->prepare("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param("ssss", $name, $username_input, $hashed_password, $role_input);
+            if ($stmt->execute()) {
+                // Registration successful: redirect to login with success message
+                $stmt->close();
+                $stmt_check->close();
+                header("Location: index.php?signup=success");
+                exit();
             } else {
-                $error_msg = "Đã có lỗi xảy ra. Vui lòng thử lại.";
+                $signup_error = "Đã có lỗi xảy ra. Vui lòng thử lại.";
             }
         }
+        $stmt_check->close();
     }
 }
 ?>
@@ -49,41 +56,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Đăng ký tài khoản</title>
-    <style>
-        /* Style tương tự form đăng nhập */
-        body { font-family: Arial, sans-serif; }
-        .signup-form { width: 300px; margin: 100px auto; border: 1px solid #ccc; padding: 20px; }
-        .signup-form h2 { text-align: center; }
-        .signup-form label { display: block; margin-top: 10px; }
-        .signup-form input[type=text], .signup-form input[type=password] {
-            width: 100%; padding: 5px;
-        }
-        .signup-form input[type=submit] { margin-top: 15px; width: 100%; }
-        .error { color: red; text-align: center; }
-        .success { color: green; text-align: center; }
-    </style>
+    <title>Đăng ký</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="signup-form">
-        <h2>Đăng ký</h2>
-        <?php if ($error_msg): ?>
-            <p class="error"><?php echo $error_msg; ?></p>
-        <?php elseif ($success_msg): ?>
-            <p class="success"><?php echo $success_msg; ?></p>
-        <?php endif; ?>
-        <form method="post" action="signup.php">
-            <label>Tên đăng nhập:</label>
-            <input type="text" name="username" required>
-            <label>Mật khẩu:</label>
-            <input type="password" name="password" required>
-            <label>Nhập lại mật khẩu:</label>
-            <input type="password" name="password2" required>
-            <input type="submit" value="Đăng ký">
-        </form>
-        <p style="text-align:center; margin-top:10px;">
-            Đã có tài khoản? <a href="index.php">Đăng nhập</a>
-        </p>
-    </div>
+<div class="container">
+    <h1>Đăng ký tài khoản</h1>
+    <!-- Display error message if any -->
+    <?php if (!empty($signup_error)): ?>
+        <p class="error"><?php echo $signup_error; ?></p>
+    <?php endif; ?>
+    <form method="post" action="">
+        <label for="name">Họ và tên:</label><br>
+        <input type="text" id="name" name="name" required><br><br>
+        
+        <label for="username">Tên đăng nhập:</label><br>
+        <input type="text" id="username" name="username" required><br><br>
+        
+        <label for="password">Mật khẩu:</label><br>
+        <input type="password" id="password" name="password" required><br><br>
+        
+        <!-- Role selection added for signup -->
+        <label for="role">Đăng ký với quyền:</label><br>
+        <select id="role" name="role" required>
+            <option value="user">Người dùng</option>
+            <option value="admin">Quản trị viên</option>
+        </select>
+        <br><br>
+        
+        <button type="submit">Đăng ký</button>
+        <p>Đã có tài khoản? <a href="index.php">Đăng nhập</a></p>
+    </form>
+</div>
 </body>
 </html>
