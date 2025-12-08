@@ -1,7 +1,20 @@
 <?php
-//creating a database connection - $link is a variable use for just connection class
-$link=mysqli_connect("sql100.infinityfree.com","if0_40506385","cQS41DJilwFGr", "if0_40506385_book_management") or die(mysqli_connect_error());
-mysqli_select_db($link,"if0_40506385_book_management") or die(mysqli_error($link));
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Database configuration
+$hostname = "localhost";
+$username = "root";
+$password = "";
+$database = "book_management";
+
+// Connect to MySQL database
+$conn = mysqli_connect($hostname, $username, $password, $database);
+if (!$conn) {
+    die("Connection failed: " . mysqli_connect_error());
+}
+
+// UTF-8 cho tiếng Việt
+mysqli_set_charset($conn, "utf8");
 ?>
-
-

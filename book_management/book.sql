@@ -1,69 +1,75 @@
--- Tạo lại từ đầu để đảm bảo tính nhất quán
+-- Xoá theo thứ tự để không lỗi khoá ngoại
 DROP TABLE IF EXISTS loans;
 DROP TABLE IF EXISTS books;
 DROP TABLE IF EXISTS publishers;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS users;
 
--- 1. Bảng User
+-- 1) USERS
 CREATE TABLE users (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  fullname VARCHAR(100) NOT NULL,
-  username VARCHAR(50) UNIQUE NOT NULL,
-  email VARCHAR(100) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  role VARCHAR(20) DEFAULT 'user' -- 'admin' hoặc 'user'
-);
+  id        INT AUTO_INCREMENT PRIMARY KEY,
+  name      VARCHAR(100) NOT NULL,
+  username  VARCHAR(50)  NOT NULL UNIQUE,
+  password  VARCHAR(255) NOT NULL,
+  role      ENUM('admin','user') NOT NULL DEFAULT 'user'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 2. Bảng Danh mục (Categories)
+-- 2) CATEGORIES
 CREATE TABLE categories (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE
-);
+  id    INT AUTO_INCREMENT PRIMARY KEY,
+  name  VARCHAR(100) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 3. Bảng Nhà xuất bản (Publishers) - [MỚI]
+-- 3) PUBLISHERS (thêm phone, address)
 CREATE TABLE publishers (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE,
-  address VARCHAR(255),
-  phone VARCHAR(20)
-);
+  id       INT AUTO_INCREMENT PRIMARY KEY,
+  name     VARCHAR(100) NOT NULL UNIQUE,
+  phone    VARCHAR(20),
+  address  VARCHAR(255)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 4. Bảng Sách (Books) - Cập nhật liên kết
+-- 4) BOOKS (thêm author, quantity)
 CREATE TABLE books (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  title VARCHAR(150) NOT NULL,
-  author VARCHAR(100) NOT NULL,
-  year INT,
-  quantity INT DEFAULT 1, -- Số lượng trong kho
-  category_id INT,
-  publisher_id INT, -- [MỚI] Liên kết NXB
-  image VARCHAR(255) DEFAULT NULL, -- (Optional: Để mở rộng sau này)
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
-  FOREIGN KEY (publisher_id) REFERENCES publishers(id) ON DELETE SET NULL
-);
+  id           INT AUTO_INCREMENT PRIMARY KEY,
+  title        VARCHAR(255) NOT NULL,
+  author       VARCHAR(150) NOT NULL,
+  quantity     INT NOT NULL DEFAULT 0,
+  category_id  INT NOT NULL,
+  publisher_id INT NOT NULL,
 
--- 5. Bảng Mượn Trả (Loans) - [MỚI]
+  INDEX idx_books_category (category_id),
+  INDEX idx_books_publisher (publisher_id),
+
+  CONSTRAINT fk_books_category
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+  CONSTRAINT fk_books_publisher
+    FOREIGN KEY (publisher_id) REFERENCES publishers(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5) LOANS
 CREATE TABLE loans (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
-  book_id INT NOT NULL,
-  borrow_date DATE DEFAULT CURRENT_DATE,
-  return_date DATE DEFAULT NULL, -- Ngày thực tế trả
-  status VARCHAR(20) DEFAULT 'borrowing', -- 'borrowing' (đang mượn), 'returned' (đã trả)
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-);
+  id          INT AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT NOT NULL,
+  book_id     INT NOT NULL,
+  borrow_date DATE NOT NULL,
+  return_date DATE NULL,
+  is_returned TINYINT(1) NOT NULL DEFAULT 0,
 
--- DỮ LIỆU MẪU
-INSERT INTO users (fullname, username, email, password, role) VALUES 
-('Admin System', 'admin', 'admin@gmail.com', '123456', 'admin'),
-('Sinh Vien A', 'user', 'user@gmail.com', '123456', 'user');
+  INDEX idx_loans_user (user_id),
+  INDEX idx_loans_book (book_id),
 
-INSERT INTO categories (name) VALUES ('Công nghệ'), ('Kinh tế'), ('Văn học');
-INSERT INTO publishers (name, address, phone) VALUES ('NXB Trẻ', 'TPHCM', '090123456'), ('NXB Kim Đồng', 'Hà Nội', '098765432');
+  CONSTRAINT fk_loans_user
+    FOREIGN KEY (user_id) REFERENCES users(id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
 
-INSERT INTO books (title, author, year, quantity, category_id, publisher_id) VALUES 
-('Lập trình PHP Nâng cao', 'Phạm Huy', 2024, 5, 1, 1),
-('Doraemon Truyện Dài', 'Fujiko F', 2020, 3, 3, 2);
+  CONSTRAINT fk_loans_book
+    FOREIGN KEY (book_id) REFERENCES books(id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

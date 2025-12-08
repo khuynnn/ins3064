@@ -1,78 +1,63 @@
 <?php
-// publishers.php - Trang danh sách Nhà xuất bản
-
 session_start();
-if (!isset($_SESSION['user_id'])) {
-    header("Location: index.php");
-    exit();
-}
-if (empty($_SESSION['is_admin']) || $_SESSION['is_admin'] == 0) {
-    die("Bạn không có quyền truy cập trang này.");
-}
-
 require 'config.php';
 
-// Xử lý xóa NXB (tương tự thể loại)
-if (isset($_GET['action']) && $_GET['action'] == 'delete') {
-    $pub_id = intval($_GET['id'] ?? 0);
-    if ($pub_id > 0) {
-        $mysqli->query("DELETE FROM publishers WHERE id = $pub_id");
-        // Lưu ý: nếu có sách thuộc NXB này, cần xử lý ràng buộc hoặc cấm xóa.
-    }
-    header("Location: publishers.php");
-    exit();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+    header("Location: index.php");
+    exit;
 }
 
-// Truy vấn tất cả NXB
-$res = $mysqli->query("SELECT * FROM publishers ORDER BY name");
+$result = mysqli_query($conn, "SELECT id, name, phone, address FROM publishers ORDER BY id DESC");
 ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Quản lý NXB</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .menu { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-        .menu a { margin-right: 15px; text-decoration: none; }
-        table { border-collapse: collapse; width: 50%; margin: 0 auto; }
-        th, td { border: 1px solid #999; padding: 8px; text-align: left; }
-        th { background: #ddd; }
-        .actions a { margin-right: 5px; }
-    </style>
+    <meta charset="UTF-8" />
+    <title>Nhà xuất bản</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <!-- Menu -->
-    <div class="menu">
-        <a href="dashboard.php">Trang chủ</a>
-        <a href="books.php">Danh sách Sách</a>
-        <a href="categories.php">Quản lý Thể loại</a>
-        <a href="publishers.php"><strong>Quản lý NXB</strong></a>
-        <a href="loans.php">Quản lý mượn sách</a>
-        <a href="logout.php">Đăng xuất</a>
-    </div>
 
-    <h2 style="text-align:center;">Danh sách Nhà xuất bản</h2>
-    <p style="text-align:center;"><a href="add_publisher.php">+ Thêm NXB</a></p>
+<div class="nav">
+    <a href="dashboard.php">Tổng quan</a>
+    <a href="books.php">Sách</a>
+    <a href="categories.php">Danh mục</a>
+    <a href="publishers.php">Nhà xuất bản</a>
+    <a href="loans.php">Mượn/Trả sách</a>
+    <a href="logout.php">Đăng xuất</a>
+</div>
+
+<div class="container">
+    <h1>Danh sách nhà xuất bản</h1>
+
+    <p><a class="qa-btn" href="add_publisher.php">+ Thêm nhà xuất bản</a></p>
+
     <table>
         <tr>
-            <th>Tên NXB</th>
+            <th>ID</th>
+            <th>Tên nhà xuất bản</th>
+            <th>Số điện thoại</th>
+            <th>Địa chỉ</th>
             <th>Hành động</th>
         </tr>
-        <?php if ($res): ?>
-            <?php while($pub = $res->fetch_assoc()): ?>
+
+        <?php if (!$result || mysqli_num_rows($result) == 0): ?>
+            <tr><td colspan="5" style="text-align:center;">Chưa có nhà xuất bản nào.</td></tr>
+        <?php else: ?>
+            <?php while ($pub = mysqli_fetch_assoc($result)): ?>
                 <tr>
+                    <td><?php echo (int)$pub['id']; ?></td>
                     <td><?php echo htmlspecialchars($pub['name']); ?></td>
-                    <td class="actions">
-                        <a href="edit_publisher.php?id=<?php echo $pub['id']; ?>">Sửa</a> | 
-                        <a href="publishers.php?action=delete&id=<?php echo $pub['id']; ?>"
-                           onclick="return confirm('Xóa NXB này?');">
-                            Xóa
-                        </a>
+                    <td><?php echo htmlspecialchars($pub['phone'] ?? ''); ?></td>
+                    <td><?php echo htmlspecialchars($pub['address'] ?? ''); ?></td>
+                    <td>
+                        <a href="edit_publisher.php?id=<?php echo (int)$pub['id']; ?>">Sửa</a>
                     </td>
                 </tr>
             <?php endwhile; ?>
         <?php endif; ?>
     </table>
+</div>
+
 </body>
 </html>

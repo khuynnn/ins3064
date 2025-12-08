@@ -1,71 +1,71 @@
 <?php
-// edit_book.php - Trang chỉnh sửa sách, chỉ dành cho admin
-
 session_start();
-if (!isset($_SESSION['user_id'])) {
+include 'config.php';
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit();
 }
-if (empty($_SESSION['is_admin']) || $_SESSION['is_admin'] == 0) {
-    die("Bạn không có quyền truy cập trang này.");
+
+// Get book ID to edit
+$book_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$book = null;
+
+if ($book_id > 0) {
+    $stmt = $conn->prepare("SELECT id, title, author, quantity, category_id, publisher_id FROM books WHERE id = ?");
+    $stmt->bind_param("i", $book_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $book = $result->fetch_assoc();
+    $stmt->close();
 }
 
-require 'config.php';
-
-// Lấy ID sách từ tham số GET
-$book_id = intval($_GET['id'] ?? 0);
-if ($book_id <= 0) {
-    die("ID sách không hợp lệ.");
+if (!$book) {
+    echo "Sách không tồn tại.";
+    exit();
 }
 
-// Truy vấn thông tin sách hiện tại theo ID
-$res = $mysqli->query("SELECT * FROM books WHERE id = $book_id");
-if (!$res || $res->num_rows == 0) {
-    die("Không tìm thấy sách với ID đã cho.");
+// Fetch categories and publishers for dropdowns
+$categories = [];
+$publishers = [];
+
+$res1 = $conn->query("SELECT id, name FROM categories ORDER BY name");
+if ($res1) {
+    while ($cat = $res1->fetch_assoc()) $categories[] = $cat;
 }
-$book = $res->fetch_assoc();
 
-// Lấy danh sách thể loại và NXB để hiển thị trong dropdown (giống add_book)
-$categories_res = $mysqli->query("SELECT id, name FROM categories");
-$publishers_res = $mysqli->query("SELECT id, name FROM publishers");
+$res2 = $conn->query("SELECT id, name FROM publishers ORDER BY name");
+if ($res2) {
+    while ($pub = $res2->fetch_assoc()) $publishers[] = $pub;
+}
 
-// Khởi tạo các biến giá trị ban đầu từ sách truy vấn được
-$title = $book['title'];
-$author = $book['author'];
-$category_id = $book['category_id'];
-$publisher_id = $book['publisher_id'];
-$quantity = $book['quantity'];
+$update_error = "";
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $title        = trim($_POST['title'] ?? '');
+    $author       = trim($_POST['author'] ?? '');
+    $quantity     = (int)($_POST['quantity'] ?? 0);
+    $category_id  = (int)($_POST['category'] ?? 0);
+    $publisher_id = (int)($_POST['publisher'] ?? 0);
 
-$error_msg = "";
-$success_msg = "";
-
-// Xử lý khi admin cập nhật form
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $title = $_POST['title'] ?? '';
-    $author = $_POST['author'] ?? '';
-    $category_id = $_POST['category_id'] ?? '';
-    $publisher_id = $_POST['publisher_id'] ?? '';
-    $quantity = $_POST['quantity'] ?? '';
-
-    if (empty($title) || empty($author) || empty($quantity) || $category_id == '' || $publisher_id == '') {
-        $error_msg = "Vui lòng điền đầy đủ thông tin.";
-    } elseif (!is_numeric($quantity) || intval($quantity) < 0) {
-        $error_msg = "Số lượng không hợp lệ.";
+    if ($title === "" || $author === "" || $category_id <= 0 || $publisher_id <= 0) {
+        $update_error = "Vui lòng điền đầy đủ thông tin.";
+    } elseif ($quantity < 0) {
+        $update_error = "Số lượng không được âm.";
     } else {
-        $title_esc = $mysqli->real_escape_string($title);
-        $author_esc = $mysqli->real_escape_string($author);
-        $cat_id = intval($category_id);
-        $pub_id = intval($publisher_id);
-        $qty = intval($quantity);
+        // Update book information
+        $stmt2 = $conn->prepare("UPDATE books 
+                                 SET title = ?, author = ?, quantity = ?, category_id = ?, publisher_id = ? 
+                                 WHERE id = ?");
+        $stmt2->bind_param("ssiiii", $title, $author, $quantity, $category_id, $publisher_id, $book_id);
 
-        $update = $mysqli->query("UPDATE books 
-                                  SET title='$title_esc', author='$author_esc', category_id=$cat_id, publisher_id=$pub_id, quantity=$qty 
-                                  WHERE id = $book_id");
-        if ($update) {
-            $success_msg = "Cập nhật sách thành công.";
+        if ($stmt2->execute()) {
+            $stmt2->close();
+            header("Location: books.php");
+            exit();
         } else {
-            $error_msg = "Lỗi: Không thể cập nhật sách.";
+            $update_error = "Lỗi khi cập nhật sách: " . $conn->error;
         }
+        $stmt2->close();
     }
 }
 ?>
@@ -73,77 +73,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Chỉnh sửa sách</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .menu { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-        .menu a { margin-right: 15px; text-decoration: none; }
-        .form-container { width: 400px; margin: 0 auto; }
-        form { border: 1px solid #ccc; padding: 20px; }
-        label { display: block; margin-top: 10px; }
-        input[type=text], select, input[type=number] { width: 100%; padding: 5px; }
-        .error { color: red; }
-        .success { color: green; }
-    </style>
+    <title>Sửa thông tin sách</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Menu -->
-    <div class="menu">
-        <a href="dashboard.php">Trang chủ</a>
-        <a href="books.php">Danh sách Sách</a>
-        <a href="categories.php">Quản lý Thể loại</a>
-        <a href="publishers.php">Quản lý NXB</a>
-        <a href="loans.php">Quản lý mượn sách</a>
-        <a href="logout.php">Đăng xuất</a>
-    </div>
+<div class="nav">
+    <a href="dashboard.php">Tổng quan</a> |
+    <a href="books.php">Sách</a> |
+    <a href="categories.php">Danh mục</a> |
+    <a href="publishers.php">Nhà xuất bản</a> |
+    <a href="loans.php">Mượn/Trả sách</a> |
+    <a href="logout.php">Đăng xuất</a>
+</div>
 
-    <div class="form-container">
-        <h2>Chỉnh sửa sách</h2>
-        <?php if ($error_msg): ?>
-            <p class="error"><?php echo $error_msg; ?></p>
-        <?php endif; ?>
-        <?php if ($success_msg): ?>
-            <p class="success"><?php echo $success_msg; ?></p>
-        <?php endif; ?>
-        <form method="post" action="edit_book.php?id=<?php echo $book_id; ?>">
-            <label>Tựa sách:</label>
-            <input type="text" name="title" value="<?php echo htmlspecialchars($title); ?>" required>
+<div class="container">
+    <h1>Sửa thông tin sách</h1>
 
-            <label>Tác giả:</label>
-            <input type="text" name="author" value="<?php echo htmlspecialchars($author); ?>" required>
+    <?php if (!empty($update_error)): ?>
+        <p class="error"><?php echo htmlspecialchars($update_error); ?></p>
+    <?php endif; ?>
 
-            <label>Thể loại:</label>
-            <select name="category_id" required>
-                <option value="">-- Chọn thể loại --</option>
-                <?php if ($categories_res): ?>
-                    <?php while($cat = $categories_res->fetch_assoc()): ?>
-                        <option value="<?php echo $cat['id']; ?>"
-                            <?php if ($cat['id'] == $category_id) echo 'selected'; ?>>
-                            <?php echo htmlspecialchars($cat['name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                <?php endif; ?>
-            </select>
+    <form method="post" action="">
+        <label for="title">Tiêu đề sách:</label><br>
+        <input type="text" id="title" name="title"
+               value="<?php echo htmlspecialchars($book['title']); ?>" required><br><br>
 
-            <label>Nhà xuất bản:</label>
-            <select name="publisher_id" required>
-                <option value="">-- Chọn NXB --</option>
-                <?php if ($publishers_res): ?>
-                    <?php while($pub = $publishers_res->fetch_assoc()): ?>
-                        <option value="<?php echo $pub['id']; ?>"
-                            <?php if ($pub['id'] == $publisher_id) echo 'selected'; ?>>
-                            <?php echo htmlspecialchars($pub['name']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                <?php endif; ?>
-            </select>
+        <label for="author">Tác giả:</label><br>
+        <input type="text" id="author" name="author"
+               value="<?php echo htmlspecialchars($book['author']); ?>" required><br><br>
 
-            <label>Số lượng sách (có sẵn):</label>
-            <input type="number" name="quantity" min="0" value="<?php echo htmlspecialchars($quantity); ?>" required>
+        <label for="quantity">Số lượng:</label><br>
+        <input type="number" id="quantity" name="quantity" min="0"
+               value="<?php echo (int)$book['quantity']; ?>" required><br><br>
 
-            <br>
-            <input type="submit" value="Lưu thay đổi">
-        </form>
-    </div>
+        <label for="category">Danh mục:</label><br>
+        <select id="category" name="category" required>
+            <option value="">-- Chọn danh mục --</option>
+            <?php foreach ($categories as $cat):
+                $selected = ((int)$cat['id'] === (int)$book['category_id']) ? 'selected' : ''; ?>
+                <option value="<?php echo (int)$cat['id']; ?>" <?php echo $selected; ?>>
+                    <?php echo htmlspecialchars($cat['name']); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <br><br>
+
+        <label for="publisher">Nhà xuất bản:</label><br>
+        <select id="publisher" name="publisher" required>
+            <option value="">-- Chọn NXB --</option>
+            <?php foreach ($publishers as $pub):
+                $selected = ((int)$pub['id'] === (int)$book['publisher_id']) ? 'selected' : ''; ?>
+                <option value="<?php echo (int)$pub['id']; ?>" <?php echo $selected; ?>>
+                    <?php echo htmlspecialchars($pub['name']); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <br><br>
+
+        <button type="submit">Cập nhật</button>
+        <a href="books.php">Quay lại</a>
+    </form>
+</div>
 </body>
 </html>

@@ -1,34 +1,32 @@
 <?php
-// add_publisher.php - Trang thêm nhà xuất bản mới
-
 session_start();
-if (!isset($_SESSION['user_id'])) {
+include 'config.php';
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit();
 }
-if (empty($_SESSION['is_admin']) || $_SESSION['is_admin'] == 0) {
-    die("Bạn không có quyền truy cập trang này.");
-}
 
-require 'config.php';
+$add_error = "";
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $pub_name = trim($_POST['name'] ?? '');
+    $phone    = trim($_POST['phone'] ?? '');
+    $address  = trim($_POST['address'] ?? '');
 
-$error_msg = "";
-$success_msg = "";
-$name = "";
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = $_POST['name'] ?? '';
-    if (empty($name)) {
-        $error_msg = "Tên NXB không được để trống.";
+    if ($pub_name === "") {
+        $add_error = "Vui lòng nhập tên nhà xuất bản.";
     } else {
-        $name_esc = $mysqli->real_escape_string($name);
-        $insert = $mysqli->query("INSERT INTO publishers (name) VALUES ('$name_esc')");
-        if ($insert) {
-            $success_msg = "Đã thêm NXB mới.";
-            $name = "";
+        $stmt = $conn->prepare("INSERT INTO publishers (name, phone, address) VALUES (?, ?, ?)");
+        $stmt->bind_param("sss", $pub_name, $phone, $address);
+
+        if ($stmt->execute()) {
+            $stmt->close();
+            header("Location: publishers.php");
+            exit();
         } else {
-            $error_msg = "Lỗi: Không thể thêm NXB.";
+            $add_error = "Lỗi khi thêm nhà xuất bản: " . $conn->error;
         }
+        $stmt->close();
     }
 }
 ?>
@@ -36,44 +34,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Thêm NXB</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .menu { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-        .menu a { margin-right: 15px; text-decoration: none; }
-        .form-container { width: 300px; margin: 0 auto; }
-        form { border: 1px solid #ccc; padding: 20px; }
-        label { display: block; margin-top: 10px; }
-        input[type=text] { width: 100%; padding: 5px; }
-        .error { color: red; }
-        .success { color: green; }
-    </style>
+    <title>Thêm nhà xuất bản</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Menu -->
-    <div class="menu">
-        <a href="dashboard.php">Trang chủ</a>
-        <a href="books.php">Danh sách Sách</a>
-        <a href="categories.php">Quản lý Thể loại</a>
-        <a href="publishers.php">Quản lý NXB</a>
-        <a href="loans.php">Quản lý mượn sách</a>
-        <a href="logout.php">Đăng xuất</a>
-    </div>
+<div class="nav">
+    <a href="dashboard.php">Tổng quan</a> |
+    <a href="books.php">Sách</a> |
+    <a href="categories.php">Danh mục</a> |
+    <a href="publishers.php">Nhà xuất bản</a> |
+    <a href="loans.php">Mượn/Trả sách</a> |
+    <a href="logout.php">Đăng xuất</a>
+</div>
 
-    <div class="form-container">
-        <h2>Thêm Nhà xuất bản</h2>
-        <?php if ($error_msg): ?>
-            <p class="error"><?php echo $error_msg; ?></p>
-        <?php endif; ?>
-        <?php if ($success_msg): ?>
-            <p class="success"><?php echo $success_msg; ?></p>
-        <?php endif; ?>
-        <form method="post" action="add_publisher.php">
-            <label>Tên NXB:</label>
-            <input type="text" name="name" value="<?php echo htmlspecialchars($name); ?>" required>
-            <br>
-            <input type="submit" value="Thêm NXB">
-        </form>
-    </div>
+<div class="container">
+    <h1>Thêm nhà xuất bản mới</h1>
+
+    <?php if (!empty($add_error)): ?>
+        <p class="error"><?php echo htmlspecialchars($add_error); ?></p>
+    <?php endif; ?>
+
+    <form method="post" action="">
+        <label for="name">Tên nhà xuất bản:</label><br>
+        <input type="text" id="name" name="name" required><br><br>
+
+        <label for="phone">Số điện thoại:</label><br>
+        <input type="text" id="phone" name="phone" placeholder="VD: 090xxxxxxx"><br><br>
+
+        <label for="address">Địa chỉ:</label><br>
+        <input type="text" id="address" name="address" placeholder="VD: Hà Nội, VN"><br><br>
+
+        <button type="submit">Thêm</button>
+        <a href="publishers.php" style="margin-left:10px;">Quay lại</a>
+    </form>
+</div>
 </body>
 </html>
