@@ -1,80 +1,100 @@
 <?php
-// loans_user.php - Trang dành cho người dùng xem các sách mình đã mượn
-
 session_start();
-if (!isset($_SESSION['user_id'])) {
+include 'config.php';
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     header("Location: index.php");
     exit();
 }
-// Trang này có thể truy cập bởi cả user thường và admin, nhưng chủ yếu phục vụ user thường để xem sách của chính họ
 
-require 'config.php';
+$user_id = (int)$_SESSION['user_id'];
 
-$user_id = $_SESSION['user_id'];
-// Truy vấn các phiếu mượn của chính người đăng nhập
-$sql = "SELECT loans.id, loans.loan_date, loans.return_date, loans.returned,
-               books.title 
+// Lấy tên hiển thị: ưu tiên session name, nếu chưa có thì lấy từ DB
+if (empty($_SESSION['name'])) {
+    $stmt_name = $conn->prepare("SELECT name, username FROM users WHERE id = ?");
+    $stmt_name->bind_param("i", $user_id);
+    $stmt_name->execute();
+    $rs_name = $stmt_name->get_result();
+    if ($rs_name && $rs_name->num_rows > 0) {
+        $u = $rs_name->fetch_assoc();
+        if (!empty($u['name'])) $_SESSION['name'] = $u['name'];
+        if (empty($_SESSION['username']) && !empty($u['username'])) $_SESSION['username'] = $u['username'];
+    }
+    $stmt_name->close();
+}
+
+$display_name = !empty($_SESSION['name']) ? $_SESSION['name'] : ($_SESSION['username'] ?? 'Bạn');
+
+// Fetch loans of the logged-in user
+$loans = [];
+$sql = "SELECT loans.id, books.title, loans.borrow_date, loans.is_returned, loans.return_date
         FROM loans
         JOIN books ON loans.book_id = books.id
-        WHERE loans.user_id = $user_id
-        ORDER BY loans.returned, loans.loan_date DESC";
-$res = $mysqli->query($sql);
+        WHERE loans.user_id = ?
+        ORDER BY loans.is_returned ASC, loans.borrow_date DESC, loans.id DESC";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result) {
+    while ($loan = $result->fetch_assoc()) {
+        $loans[] = $loan;
+    }
+}
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Sách đang mượn</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .menu { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-        .menu a { margin-right: 15px; text-decoration: none; }
-        table { border-collapse: collapse; width: 80%; margin: 0 auto; }
-        th, td { border: 1px solid #999; padding: 8px; text-align: left; }
-        th { background: #ddd; }
-        .returned { background: #e0ffe0; }
-        .not-returned { background: #ffe0e0; }
-    </style>
+    <title>Sách đã mượn</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Menu (tái sử dụng) -->
-    <div class="menu">
-        <a href="dashboard.php">Trang chủ</a>
-        <a href="books.php">Danh sách Sách</a>
-        <?php if (!empty($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1): ?>
-            <a href="categories.php">Quản lý Thể loại</a>
-            <a href="publishers.php">Quản lý NXB</a>
-            <a href="loans.php">Quản lý mượn sách</a>
-        <?php else: ?>
-            <a href="loans_user.php"><strong>Sách đang mượn</strong></a>
-        <?php endif; ?>
-        <a href="logout.php">Đăng xuất</a>
-    </div>
 
-    <h2 style="text-align:center;">Sách bạn đã mượn</h2>
+<div class="nav">
+    <a href="borrow_book.php">Mượn sách</a> |
+    <a href="loans_user.php"><strong>Sách đã mượn</strong></a> |
+    <a href="logout.php">Đăng xuất</a>
+</div>
+
+<div class="container">
+    <h1>Xin chào, <?php echo htmlspecialchars($display_name); ?> 👋</h1>
+    <p class="subtitle">Dưới đây là danh sách sách bạn đã mượn.</p>
+
     <table>
         <tr>
-            <th>ID Phiếu</th>
-            <th>Tựa sách</th>
+            <th>Tiêu đề sách</th>
             <th>Ngày mượn</th>
             <th>Trạng thái</th>
         </tr>
-        <?php if ($res): ?>
-            <?php while($loan = $res->fetch_assoc()): ?>
-                <tr class="<?php echo $loan['returned'] ? 'returned' : 'not-returned'; ?>">
-                    <td><?php echo $loan['id']; ?></td>
+
+        <?php if (empty($loans)): ?>
+            <tr>
+                <td colspan="3" style="text-align:center;">Bạn chưa mượn sách nào.</td>
+            </tr>
+        <?php else: ?>
+            <?php foreach ($loans as $loan): ?>
+                <tr>
                     <td><?php echo htmlspecialchars($loan['title']); ?></td>
-                    <td><?php echo htmlspecialchars($loan['loan_date']); ?></td>
+                    <td><?php echo htmlspecialchars($loan['borrow_date']); ?></td>
                     <td>
-                        <?php if ($loan['returned']): ?>
-                            Đã trả <?php echo $loan['return_date'] ? ' ('.$loan['return_date'].')' : ''; ?>
+                        <?php if ((int)$loan['is_returned'] === 1): ?>
+                            Đã trả<?php echo !empty($loan['return_date']) ? " (" . htmlspecialchars($loan['return_date']) . ")" : ""; ?>
                         <?php else: ?>
-                            Chưa trả
+                            Đang mượn
                         <?php endif; ?>
                     </td>
                 </tr>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         <?php endif; ?>
     </table>
+
+    <p style="margin-top: 15px;">
+        <a class="qa-btn" href="borrow_book.php">Mượn thêm sách</a>
+    </p>
+</div>
+
 </body>
 </html>
