@@ -115,6 +115,7 @@ $display_name = isset($_SESSION['name'])
         <a class="qa-btn" href="add_category.php">+ Thêm danh mục</a>
         <a class="qa-btn" href="add_publisher.php">+ Thêm nhà xuất bản</a>
         <a class="qa-btn" href="loans.php">📚 Quản lý mượn / trả</a>
+        <a class="qa-btn" href="promote_user.php">⬆️ Nâng user lên admin</a>
     </div>
 </div>
 </body>

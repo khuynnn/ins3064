@@ -16,30 +16,33 @@ if (isset($_SESSION['user_id'])) {
 
 $signup_error = "";
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name            = $_POST['name']     ?? '';
-    $username_input  = $_POST['username'] ?? '';
-    $password_input  = $_POST['password'] ?? '';
-    $role_input      = $_POST['role']     ?? '';
-    
+    $name           = trim($_POST['name'] ?? '');
+    $username_input = trim($_POST['username'] ?? '');
+    $password_input = $_POST['password'] ?? '';
+
+    // Không cho người dùng tự chọn role nữa
+    $role_input = "user";
+
     // Basic validation for empty fields
-    if ($name == "" || $username_input == "" || $password_input == "" || $role_input == "") {
+    if ($name === "" || $username_input === "" || $password_input === "") {
         $signup_error = "Vui lòng điền đầy đủ thông tin.";
     } else {
-        // Check if username already exists (regardless of role)
+        // Check if username already exists
         $stmt_check = $conn->prepare("SELECT id FROM users WHERE username = ?");
         $stmt_check->bind_param("s", $username_input);
         $stmt_check->execute();
         $result_check = $stmt_check->get_result();
+
         if ($result_check && $result_check->num_rows > 0) {
             $signup_error = "Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.";
         } else {
-            // Hash the password before storing (for security)
             $hashed_password = password_hash($password_input, PASSWORD_DEFAULT);
-            // Insert new user into database
+
+            // Insert new user with role = 'user'
             $stmt = $conn->prepare("INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)");
             $stmt->bind_param("ssss", $name, $username_input, $hashed_password, $role_input);
+
             if ($stmt->execute()) {
-                // Registration successful: redirect to login with success message
                 $stmt->close();
                 $stmt_check->close();
                 header("Location: index.php?signup=success");
@@ -47,6 +50,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             } else {
                 $signup_error = "Đã có lỗi xảy ra. Vui lòng thử lại.";
             }
+            $stmt->close();
         }
         $stmt_check->close();
     }
@@ -62,28 +66,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 <div class="container">
     <h1>Đăng ký tài khoản</h1>
-    <!-- Display error message if any -->
+
     <?php if (!empty($signup_error)): ?>
-        <p class="error"><?php echo $signup_error; ?></p>
+        <p class="error"><?php echo htmlspecialchars($signup_error); ?></p>
     <?php endif; ?>
+
     <form method="post" action="">
         <label for="name">Họ và tên:</label><br>
         <input type="text" id="name" name="name" required><br><br>
-        
+
         <label for="username">Tên đăng nhập:</label><br>
         <input type="text" id="username" name="username" required><br><br>
-        
+
         <label for="password">Mật khẩu:</label><br>
         <input type="password" id="password" name="password" required><br><br>
-        
-        <!-- Role selection added for signup -->
-        <label for="role">Đăng ký với quyền:</label><br>
-        <select id="role" name="role" required>
-            <option value="user">Người dùng</option>
-            <option value="admin">Quản trị viên</option>
-        </select>
-        <br><br>
-        
+
+        <!-- ĐÃ BỎ chọn role để tránh tự đăng ký admin -->
+
         <button type="submit">Đăng ký</button>
         <p>Đã có tài khoản? <a href="index.php">Đăng nhập</a></p>
     </form>
