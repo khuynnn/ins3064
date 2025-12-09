@@ -4,10 +4,10 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // Database configuration
-$hostname = "localhost";
-$username = "root";
-$password = "";
-$database = "book_management";
+$hostname = "sql100.infinityfree.com";
+$username = "if0_40506385";
+$password = "cQS41DJilwFGr";
+$database = "if0_40506385_book_management";
 
 // Connect to MySQL database
 $conn = mysqli_connect($hostname, $username, $password, $database);
