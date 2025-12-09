@@ -1,94 +1,247 @@
+/* ==== GLOBAL PAGE STYLE ==== */
 body {
-  font-family: "Segoe UI", sans-serif;
-  background: linear-gradient(135deg, #4a90e2, #6dd5ed);
-  color: #333;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #d6ecff, #b3d9ff); /* pastel light blue */
+    color: #333;
 }
 
+/* Main content area */
 .container {
-  background: white;
-  padding: 30px;
-  border-radius: 15px;
-  box-shadow: 0 0 20px rgba(0,0,0,0.1);
-  text-align: center;
-  width: 400px;
+    width: 80%;
+    margin: 40px auto;
+    background: #ffffffdd;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    animation: fadeIn 0.5s ease-in-out;
 }
 
-input, button {
-  width: 90%;
-  padding: 10px;
-  margin: 10px 0;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+/* Fade-in animation */
+@keyframes fadeIn {
+    from {opacity: 0; transform: translateY(10px);}
+    to   {opacity: 1; transform: translateY(0);}
 }
 
-button {
-  background-color: #4ae28e;
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
+/* ==== NAVIGATION BAR ==== */
+.nav {
+    background: linear-gradient(90deg, #89c4ff, #5aa9ff); /* pastel blue gradient */
+    padding: 15px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
 }
 
-button:hover {
-  background-color: #357ABD;
+.nav a {
+    color: #fff;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 8px 14px;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: 0.25s;
 }
 
-a {
-  color: #4a90e2;
-  text-decoration: none;
+.nav a:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-2px);
 }
 
-a:hover {
-  text-decoration: underline;
-}
-
-.error {
-  color: red;
-}
-
+/* ==== TABLE STYLE ==== */
 table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
-
-th, td {
-  border: 1px solid #ddd;
-  padding: 8px;
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
 }
 
 th {
-  background-color: #4a90e2;
-  color: white;
+    background: #b3d9ff;
+    color: #003d66;
+    padding: 12px;
+    font-size: 15px;
 }
 
-.btn-group {
-  display: flex;
-  justify-content: center; /* căn giữa */
-  gap: 12px;               /* khoảng cách giữa các nút */
-  margin-top: 16px;
+td {
+    padding: 10px;
+    background: #ffffff;
 }
 
-/* nút chung */
-.btn {
-  display: inline-block;
-  padding: 10px 16px;
-  border-radius: 8px;
-  text-decoration: none;
-  color: #fff;
-  background-color: #33cc5c;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-  vertical-align: middle;
+tr:nth-child(even) td {
+    background: #e9f5ff; /* very light sky blue */
 }
 
-.btn.logout {
-  background-color: #f44336;
+table, th, td {
+    border: 1px solid #c7dff6;
 }
 
-.btn:hover {
-  opacity: 0.9;
+tr:hover td {
+    background: #d6ecff;
+    transition: 0.2s;
+}
+
+/* ==== FORMS ==== */
+form label {
+    font-weight: bold;
+    color: #003d66;
+    display: block;
+    margin-bottom: 5px;
+}
+
+form input,
+form select {
+    width: 60%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #aac8e8;
+    margin-bottom: 20px;
+    transition: 0.25s;
+    background: #f5faff;
+}
+
+form input:focus,
+form select:focus {
+    border-color: #5aa9ff;
+    box-shadow: 0 0 6px rgba(90,169,255,0.5);
+}
+
+/* ==== BUTTON ==== */
+form button {
+    padding: 12px 25px;
+    background: linear-gradient(90deg, #5aa9ff, #89c4ff);
+    border: none;
+    color: white;
+    font-size: 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: 0.25s;
+}
+
+form button:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(90deg, #89c4ff, #5aa9ff);
+}
+
+/* ==== LINKS ==== */
+form a {
+    margin-left: 10px;
+    color: #0a6fd6;
+}
+
+form a:hover {
+    text-decoration: underline;
+}
+
+/* ==== MESSAGES ==== */
+.error {
+    color: #d93025;
+    background: #ffe6e6;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+.success {
+    color: #0f9d58;
+    background: #e2f7e9;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+
+/* ==== OUT OF STOCK ==== */
+.unavailable {
+    color: #7a7a7a;
+    font-style: italic;
+}
+/* ===== SUPER BUTTONS (New) ===== */
+.btn,
+button,
+.qa-btn,
+.nav a {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    color: white !important;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 25px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: 0 4px 10px rgba(0, 153, 255, 0.25);
+    transition: 0.25s ease;
+}
+
+.btn:hover,
+button:hover,
+.qa-btn:hover,
+.nav a:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 6px 14px rgba(0, 153, 255, 0.35);
+    background: linear-gradient(135deg, #00c6ff, #0072ff);
+}
+/* ==== NEW STATISTICS UI ==== */
+
+.stats-wrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 18px;
+    margin-bottom: 30px;
+}
+
+.stat-box {
+    display: flex;
+    align-items: center;
+    padding: 18px;
+    border-radius: 16px;
+    color: white;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+    transition: 0.25s ease;
+}
+
+.stat-box:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 22px rgba(0,0,0,0.25);
+}
+
+.stat-icon {
+    font-size: 40px;
+    margin-right: 18px;
+}
+
+.stat-title {
+    font-size: 15px;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.stat-value {
+    font-size: 30px;
+    font-weight: bold;
+    margin: 3px 0 0;
+}
+
+/* 🎨 Gradient màu từng ô */
+
+.box-books {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.box-categories {
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+}
+
+.box-publishers {
+    background: linear-gradient(135deg, #fa709a, #fee140);
+}
+
+.box-users {
+    background: linear-gradient(135deg, #fbc2eb, #a6c1ee);
+}
+
+.box-loans {
+    background: linear-gradient(135deg, #a18cd1, #fbc2eb);
 }

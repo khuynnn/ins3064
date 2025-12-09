@@ -1,109 +1,139 @@
 <?php
-// loans.php - Trang quản lý các phiếu mượn sách, dành cho admin
-
 session_start();
-if (!isset($_SESSION['user_id'])) {
+include 'config.php';
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit();
 }
-if (empty($_SESSION['is_admin']) || $_SESSION['is_admin'] == 0) {
-    die("Bạn không có quyền truy cập trang này.");
-}
 
-require 'config.php';
+// ==========================
+// Handle marking a book as returned + update book quantity
+// ==========================
+if (isset($_GET['return_id'])) {
+    $loan_id = (int)$_GET['return_id'];
 
-// Xử lý yêu cầu đánh dấu trả sách (nếu admin bấm "Đã trả")
-if (isset($_GET['action']) && $_GET['action'] == 'return') {
-    $loan_id = intval($_GET['id'] ?? 0);
-    if ($loan_id > 0) {
-        // Cập nhật phiếu mượn thành đã trả
-        $mysqli->query("UPDATE loans SET returned = 1, return_date = CURDATE() WHERE id = $loan_id");
-        // Lấy book_id tương ứng phiếu mượn để tăng lại số lượng sách
-        $bookRes = $mysqli->query("SELECT book_id FROM loans WHERE id = $loan_id");
-        if ($bookRes && $bookRes->num_rows > 0) {
-            $loanInfo = $bookRes->fetch_assoc();
-            $book_id = $loanInfo['book_id'];
-            $mysqli->query("UPDATE books SET quantity = quantity + 1 WHERE id = $book_id");
+    // Chỉ xử lý nếu phiếu mượn còn đang "chưa trả"
+    $stmt_get = $conn->prepare("SELECT book_id FROM loans WHERE id = ? AND is_returned = 0");
+    $stmt_get->bind_param("i", $loan_id);
+    $stmt_get->execute();
+    $rs = $stmt_get->get_result();
+    $loanRow = $rs ? $rs->fetch_assoc() : null;
+    $stmt_get->close();
+
+    if ($loanRow) {
+        $book_id = (int)$loanRow['book_id'];
+
+        $conn->begin_transaction();
+        try {
+            // 1) Đánh dấu đã trả
+            $stmt1 = $conn->prepare("UPDATE loans SET is_returned = 1, return_date = CURDATE() WHERE id = ?");
+            $stmt1->bind_param("i", $loan_id);
+            $stmt1->execute();
+            $stmt1->close();
+
+            // 2) Cộng lại số lượng sách trong kho
+            $stmt2 = $conn->prepare("UPDATE books SET quantity = quantity + 1 WHERE id = ?");
+            $stmt2->bind_param("i", $book_id);
+            $stmt2->execute();
+            $stmt2->close();
+
+            $conn->commit();
+        } catch (Exception $e) {
+            $conn->rollback();
+            // Có thể log lỗi nếu cần: error_log($e->getMessage());
         }
     }
+
+    // Redirect để tránh refresh bị cộng kho nhiều lần
     header("Location: loans.php");
     exit();
 }
 
-// Truy vấn danh sách phiếu mượn, join với users và books để lấy thông tin
-$sql = "SELECT loans.id, loans.book_id, loans.user_id, loans.loan_date, loans.return_date, loans.returned,
-               users.username, books.title 
+// ==========================
+// Fetch all loan records
+// ==========================
+$loans = [];
+$sql = "SELECT 
+            loans.id,
+            books.title,
+            users.name AS user_name,
+            loans.borrow_date,
+            loans.is_returned,
+            loans.return_date
         FROM loans
-        JOIN users ON loans.user_id = users.id
         JOIN books ON loans.book_id = books.id
-        ORDER BY loans.returned, loans.loan_date DESC";
-$res = $mysqli->query($sql);
+        JOIN users ON loans.user_id = users.id
+        ORDER BY loans.borrow_date DESC, loans.id DESC";
+
+$result = $conn->query($sql);
+if ($result) {
+    while ($loan = $result->fetch_assoc()) {
+        $loans[] = $loan;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Quản lý Phiếu mượn</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .menu { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-        .menu a { margin-right: 15px; text-decoration: none; }
-        table { border-collapse: collapse; width: 80%; margin: 0 auto; }
-        th, td { border: 1px solid #999; padding: 8px; text-align: left; }
-        th { background: #ddd; }
-        .returned { background: #e0ffe0; }
-        .not-returned { background: #ffe0e0; }
-    </style>
+    <title>Quản lý mượn trả</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Menu -->
-    <div class="menu">
-        <a href="dashboard.php">Trang chủ</a>
-        <a href="books.php">Danh sách Sách</a>
-        <a href="categories.php">Quản lý Thể loại</a>
-        <a href="publishers.php">Quản lý NXB</a>
-        <a href="loans.php"><strong>Quản lý mượn sách</strong></a>
-        <a href="logout.php">Đăng xuất</a>
-    </div>
+<div class="nav">
+    <a href="dashboard.php">Tổng quan</a> |
+    <a href="books.php">Sách</a> |
+    <a href="categories.php">Danh mục</a> |
+    <a href="publishers.php">Nhà xuất bản</a> |
+    <a href="loans.php">Mượn/Trả sách</a> |
+    <a href="logout.php">Đăng xuất</a>
+</div>
 
-    <h2 style="text-align:center;">Danh sách Phiếu mượn</h2>
+<div class="container">
+    <h1>Quản lý mượn/trả sách</h1>
+
     <table>
         <tr>
-            <th>ID</th>
             <th>Người mượn</th>
-            <th>Tựa sách</th>
+            <th>Tên sách</th>
             <th>Ngày mượn</th>
             <th>Trạng thái</th>
             <th>Hành động</th>
         </tr>
-        <?php if ($res): ?>
-            <?php while($loan = $res->fetch_assoc()): ?>
-                <tr class="<?php echo $loan['returned'] ? 'returned' : 'not-returned'; ?>">
-                    <td><?php echo $loan['id']; ?></td>
-                    <td><?php echo htmlspecialchars($loan['username']); ?></td>
+
+        <?php if (empty($loans)): ?>
+            <tr>
+                <td colspan="5" style="text-align:center;">Chưa có phiếu mượn nào.</td>
+            </tr>
+        <?php else: ?>
+            <?php foreach ($loans as $loan): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($loan['user_name']); ?></td>
                     <td><?php echo htmlspecialchars($loan['title']); ?></td>
-                    <td><?php echo htmlspecialchars($loan['loan_date']); ?></td>
+                    <td><?php echo htmlspecialchars($loan['borrow_date']); ?></td>
                     <td>
-                        <?php if ($loan['returned']): ?>
-                            Đã trả <?php echo $loan['return_date'] ? ' ('.$loan['return_date'].')' : ''; ?>
+                        <?php if ((int)$loan['is_returned'] === 1): ?>
+                            Đã trả (<?php echo htmlspecialchars($loan['return_date']); ?>)
                         <?php else: ?>
                             Chưa trả
                         <?php endif; ?>
                     </td>
                     <td>
-                        <?php if (!$loan['returned']): ?>
-                            <a href="loans.php?action=return&id=<?php echo $loan['id']; ?>"
-                               onclick="return confirm('Đánh dấu sách đã được trả?');">
-                                Đã trả
+                        <?php if ((int)$loan['is_returned'] === 0): ?>
+                            <a href="loans.php?return_id=<?php echo (int)$loan['id']; ?>"
+                               onclick="return confirm('Đánh dấu sách này đã trả?');">
+                                Đánh dấu đã trả
                             </a>
                         <?php else: ?>
-                            <!-- Nếu đã trả thì không có hành động -->
-                            <span style="color: gray;">✔</span>
+                            —
                         <?php endif; ?>
                     </td>
                 </tr>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
         <?php endif; ?>
+
     </table>
+</div>
 </body>
 </html>

@@ -1,79 +1,84 @@
 <?php
-// categories.php - Trang danh sách thể loại sách (chỉ admin)
-
 session_start();
-if (!isset($_SESSION['user_id'])) {
+include 'config.php';
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit();
 }
-if (empty($_SESSION['is_admin']) || $_SESSION['is_admin'] == 0) {
-    die("Bạn không có quyền truy cập trang này.");
-}
 
-require 'config.php';
-
-// Xử lý xóa thể loại nếu có yêu cầu (qua tham số GET)
-if (isset($_GET['action']) && $_GET['action'] == 'delete') {
-    $cat_id = intval($_GET['id'] ?? 0);
-    if ($cat_id > 0) {
-        // Xóa thể loại với id tương ứng
-        $mysqli->query("DELETE FROM categories WHERE id = $cat_id");
-        // Lưu ý: nếu có sách thuộc thể loại này, xóa sẽ thất bại (hoặc xóa cascade nếu đặt quan hệ).
+$delete_error = "";
+// Handle deletion of a category if requested
+if (isset($_GET['delete_id'])) {
+    $cat_id = intval($_GET['delete_id']);
+    // Check if any book belongs to this category
+    $stmt_check = $conn->prepare("SELECT COUNT(*) as cnt FROM books WHERE category_id = ?");
+    $stmt_check->bind_param("i", $cat_id);
+    $stmt_check->execute();
+    $result_check = $stmt_check->get_result();
+    $row = $result_check->fetch_assoc();
+    if ($row && $row['cnt'] > 0) {
+        // Prevent deletion if books under this category exist
+        $delete_error = "Không thể xóa danh mục này vì còn sách thuộc danh mục.";
+    } else {
+        // Safe to delete the category
+        $stmt_del = $conn->prepare("DELETE FROM categories WHERE id = ?");
+        $stmt_del->bind_param("i", $cat_id);
+        $stmt_del->execute();
+        $stmt_del->close();
     }
-    header("Location: categories.php");
-    exit();
+    $stmt_check->close();
 }
 
-// Truy vấn lấy tất cả thể loại
-$res = $mysqli->query("SELECT * FROM categories ORDER BY name");
+// Fetch all categories
+$categories = [];
+$result = $conn->query("SELECT * FROM categories");
+if ($result) {
+    while ($cat = $result->fetch_assoc()) {
+        $categories[] = $cat;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Quản lý Thể loại</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        .menu { background: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-        .menu a { margin-right: 15px; text-decoration: none; }
-        table { border-collapse: collapse; width: 50%; margin: 0 auto; }
-        th, td { border: 1px solid #999; padding: 8px; text-align: left; }
-        th { background: #ddd; }
-        .actions a { margin-right: 5px; }
-    </style>
+    <title>Quản lý danh mục</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Menu -->
-    <div class="menu">
-        <a href="dashboard.php">Trang chủ</a>
-        <a href="books.php">Danh sách Sách</a>
-        <a href="categories.php"><strong>Quản lý Thể loại</strong></a>
-        <a href="publishers.php">Quản lý NXB</a>
-        <a href="loans.php">Quản lý mượn sách</a>
-        <a href="logout.php">Đăng xuất</a>
-    </div>
-
-    <h2 style="text-align:center;">Danh mục Thể loại</h2>
-    <p style="text-align:center;"><a href="add_category.php">+ Thêm thể loại</a></p>
+<div class="nav">
+    <!-- Navigation bar for admin -->
+    <a href="dashboard.php">Tổng quan</a> | 
+    <a href="books.php">Sách</a> | 
+    <a href="categories.php">Danh mục</a> | 
+    <a href="publishers.php">Nhà xuất bản</a> | 
+    <a href="loans.php">Mượn/Trả sách</a> | 
+    <a href="logout.php">Đăng xuất</a>
+</div>
+<div class="container">
+    <h1>Danh mục sách</h1>
+    <!-- Show error if deletion was prevented -->
+    <?php if (!empty($delete_error)): ?>
+        <p class="error"><?php echo $delete_error; ?></p>
+    <?php endif; ?>
     <table>
         <tr>
-            <th>Tên thể loại</th>
+            <th>ID</th>
+            <th>Tên danh mục</th>
             <th>Hành động</th>
         </tr>
-        <?php if ($res): ?>
-            <?php while($cat = $res->fetch_assoc()): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($cat['name']); ?></td>
-                    <td class="actions">
-                        <a href="edit_category.php?id=<?php echo $cat['id']; ?>">Sửa</a> | 
-                        <a href="categories.php?action=delete&id=<?php echo $cat['id']; ?>"
-                           onclick="return confirm('Xóa thể loại này?');">
-                            Xóa
-                        </a>
-                    </td>
-                </tr>
-            <?php endwhile; ?>
-        <?php endif; ?>
+        <?php foreach ($categories as $cat): ?>
+        <tr>
+            <td><?php echo $cat['id']; ?></td>
+            <td><?php echo htmlspecialchars($cat['name']); ?></td>
+            <td>
+                <a href="edit_category.php?id=<?php echo $cat['id']; ?>">Sửa</a>
+                | <a href="categories.php?delete_id=<?php echo $cat['id']; ?>" onclick="return confirm('Xác nhận xóa danh mục?');">Xóa</a>
+            </td>
+        </tr>
+        <?php endforeach; ?>
     </table>
+    <p><a href="add_category.php">Thêm danh mục mới</a></p>
+</div>
 </body>
 </html>
