@@ -7,11 +7,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-// Xử lý xóa sách (và xóa luôn lịch sử mượn sách liên quan)
+// XÓA SÁCH + XÓA ẢNH
 if (isset($_GET['delete_id'])) {
-    $book_id = intval($_GET['delete_id']);
+    $book_id = (int)$_GET['delete_id'];
 
-    // Xóa loan trước cho chắc
+    // Lấy tên ảnh trước khi xóa
+    $stmt_img = $conn->prepare("SELECT image FROM books WHERE id = ?");
+    $stmt_img->bind_param("i", $book_id);
+    $stmt_img->execute();
+    $stmt_img->bind_result($image);
+    $stmt_img->fetch();
+    $stmt_img->close();
+
+    // Xóa loans
     $stmt_del2 = $conn->prepare("DELETE FROM loans WHERE book_id = ?");
     $stmt_del2->bind_param("i", $book_id);
     $stmt_del2->execute();
@@ -22,21 +30,34 @@ if (isset($_GET['delete_id'])) {
     $stmt_del->bind_param("i", $book_id);
     $stmt_del->execute();
     $stmt_del->close();
+
+    // Xóa file ảnh
+    if (!empty($image)) {
+        $filePath = "uploads/books/" . $image;
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+    }
+
+    header("Location: books.php");
+    exit();
 }
 
-// Lấy danh sách sách + tên danh mục + NXB + tác giả + số lượng
+// LẤY DANH SÁCH SÁCH
 $books = [];
 $sql = "SELECT 
-            books.id, 
+            books.id,
             books.title,
             books.author,
             books.quantity,
-            categories.name AS category, 
+            books.image,
+            categories.name AS category,
             publishers.name AS publisher
-        FROM books 
-        LEFT JOIN categories ON books.category_id = categories.id 
+        FROM books
+        LEFT JOIN categories ON books.category_id = categories.id
         LEFT JOIN publishers ON books.publisher_id = publishers.id
         ORDER BY books.id DESC";
+
 $result = $conn->query($sql);
 if ($result) {
     while ($book = $result->fetch_assoc()) {
@@ -52,6 +73,7 @@ if ($result) {
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <div class="nav">
     <a href="dashboard.php">Tổng quan</a>
     <a href="books.php">Sách</a>
@@ -71,6 +93,7 @@ if ($result) {
     <table>
         <tr>
             <th>ID</th>
+            <th>Ảnh</th>
             <th>Tiêu đề</th>
             <th>Tác giả</th>
             <th>Số lượng</th>
@@ -81,12 +104,21 @@ if ($result) {
 
         <?php if (empty($books)): ?>
             <tr>
-                <td colspan="7" style="text-align:center;">Chưa có sách nào trong hệ thống.</td>
+                <td colspan="8" style="text-align:center;">Chưa có sách nào trong hệ thống.</td>
             </tr>
         <?php else: ?>
             <?php foreach ($books as $book): ?>
                 <tr>
                     <td><?php echo (int)$book['id']; ?></td>
+
+                    <td>
+                        <?php if (!empty($book['image'])): ?>
+                            <img src="uploads/books/<?php echo htmlspecialchars($book['image']); ?>" width="60">
+                        <?php else: ?>
+                            <span>—</span>
+                        <?php endif; ?>
+                    </td>
+
                     <td><?php echo htmlspecialchars($book['title']); ?></td>
                     <td><?php echo htmlspecialchars($book['author']); ?></td>
                     <td><?php echo (int)$book['quantity']; ?></td>
@@ -103,5 +135,6 @@ if ($result) {
         <?php endif; ?>
     </table>
 </div>
+
 </body>
 </html>

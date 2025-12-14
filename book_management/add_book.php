@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
-// Fetch categories and publishers for the form dropdowns
+// Fetch categories and publishers
 $categories = [];
 $publishers = [];
 
@@ -22,33 +22,65 @@ if ($res2) {
 }
 
 $add_error = "";
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $title        = trim($_POST['title'] ?? '');
     $author       = trim($_POST['author'] ?? '');
-    $quantity     = $_POST['quantity'] ?? '';
-    $category_id  = $_POST['category'] ?? '';
-    $publisher_id = $_POST['publisher'] ?? '';
+    $quantity     = (int)($_POST['quantity'] ?? 0);
+    $category_id  = (int)($_POST['category'] ?? 0);
+    $publisher_id = (int)($_POST['publisher'] ?? 0);
 
-    // ép kiểu an toàn
-    $quantity = (int)$quantity;
-    $category_id = (int)$category_id;
-    $publisher_id = (int)$publisher_id;
+    // xử lý ảnh
+    // xử lý ảnh
+    $imageName = null;
 
-    if ($title === "" || $author === "" || $category_id <= 0 || $publisher_id <= 0) {
-        $add_error = "Vui lòng điền đầy đủ thông tin sách.";
-    } elseif ($quantity < 0) {
-        $add_error = "Số lượng không được âm.";
-    } else {
-        // Insert new book into database
-        $stmt = $conn->prepare("INSERT INTO books (title, author, quantity, category_id, publisher_id) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssiii", $title, $author, $quantity, $category_id, $publisher_id);
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
 
-        if ($stmt->execute()) {
-            $stmt->close();
-            header("Location: books.php");
-            exit();
+        $allowed = ['jpg', 'jpeg', 'png'];
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowed)) {
+            $add_error = "Chỉ cho phép ảnh JPG, JPEG, PNG.";
+        } elseif ($_FILES['image']['size'] > 2 * 1024 * 1024) {
+            $add_error = "Ảnh không được vượt quá 2MB.";
         } else {
-            $add_error = "Lỗi khi thêm sách: " . $conn->error;
+            $imageName = uniqid('book_', true) . '.' . $ext;
+            $target = __DIR__ . '/uploads/books/' . $imageName;
+
+            if (!move_uploaded_file($_FILES['image']['tmp_name'], $target)) {
+                $add_error = "Upload ảnh thất bại.";
+            }
+        }
+    }
+
+
+    if ($add_error === "") {
+        if ($title === "" || $author === "" || $category_id <= 0 || $publisher_id <= 0) {
+            $add_error = "Vui lòng điền đầy đủ thông tin sách.";
+        } elseif ($quantity < 0) {
+            $add_error = "Số lượng không được âm.";
+        } else {
+            $stmt = $conn->prepare("
+                INSERT INTO books (title, author, quantity, category_id, publisher_id, image)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param(
+                "ssiiis",
+                $title,
+                $author,
+                $quantity,
+                $category_id,
+                $publisher_id,
+                $imageName
+            );
+
+            if ($stmt->execute()) {
+                $stmt->close();
+                header("Location: books.php");
+                exit();
+            } else {
+                $add_error = "Lỗi khi thêm sách: " . $conn->error;
+            }
         }
     }
 }
@@ -61,6 +93,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <div class="nav">
     <a href="dashboard.php">Tổng quan</a> |
     <a href="books.php">Sách</a> |
@@ -77,40 +110,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <p class="error"><?php echo htmlspecialchars($add_error); ?></p>
     <?php endif; ?>
 
-    <form method="post" action="">
-        <label for="title">Tiêu đề sách:</label><br>
-        <input type="text" id="title" name="title" required><br><br>
+    <!-- PHẢI có enctype -->
+    <form method="post" enctype="multipart/form-data">
+        <label>Tiêu đề sách:</label><br>
+        <input type="text" name="title" required><br><br>
 
-        <label for="author">Tác giả:</label><br>
-        <input type="text" id="author" name="author" required><br><br>
+        <label>Tác giả:</label><br>
+        <input type="text" name="author" required><br><br>
 
-        <label for="quantity">Số lượng:</label><br>
-        <input type="number" id="quantity" name="quantity" min="0" value="0" required><br><br>
+        <label>Số lượng:</label><br>
+        <input type="number" name="quantity" min="0" value="0" required><br><br>
 
-        <label for="category">Danh mục:</label><br>
-        <select id="category" name="category" required>
+        <label>Danh mục:</label><br>
+        <select name="category" required>
             <option value="">-- Chọn danh mục --</option>
             <?php foreach ($categories as $cat): ?>
                 <option value="<?php echo (int)$cat['id']; ?>">
                     <?php echo htmlspecialchars($cat['name']); ?>
                 </option>
             <?php endforeach; ?>
-        </select>
-        <br><br>
+        </select><br><br>
 
-        <label for="publisher">Nhà xuất bản:</label><br>
-        <select id="publisher" name="publisher" required>
+        <label>Nhà xuất bản:</label><br>
+        <select name="publisher" required>
             <option value="">-- Chọn NXB --</option>
             <?php foreach ($publishers as $pub): ?>
                 <option value="<?php echo (int)$pub['id']; ?>">
                     <?php echo htmlspecialchars($pub['name']); ?>
                 </option>
             <?php endforeach; ?>
-        </select>
-        <br><br>
+        </select><br><br>
+
+        <label>Ảnh bìa sách:</label><br>
+        <input type="file" name="image" accept=".jpg,.jpeg,.png"><br><br>
 
         <button type="submit">Thêm sách</button>
     </form>
 </div>
+
 </body>
 </html>

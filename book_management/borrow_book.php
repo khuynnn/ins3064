@@ -11,15 +11,13 @@ $user_id = (int)$_SESSION['user_id'];
 $message = "";
 
 // ==========================
-// Handle borrowing action when a book is selected
+// HANDLE BORROW
 // ==========================
 if (isset($_GET['book_id'])) {
     $book_id = (int)$_GET['book_id'];
 
-    // Transaction để tránh mượn cùng lúc làm âm kho
     $conn->begin_transaction();
     try {
-        // Khóa row sách và kiểm tra số lượng
         $stmt_check = $conn->prepare("SELECT quantity FROM books WHERE id = ? FOR UPDATE");
         $stmt_check->bind_param("i", $book_id);
         $stmt_check->execute();
@@ -32,13 +30,11 @@ if (isset($_GET['book_id'])) {
         }
 
         if ((int)$bookRow['quantity'] <= 0) {
-            // Hết sách
             $conn->rollback();
-            echo "<script>alert('Sách hiện đã hết (không còn số lượng trong kho).'); window.location.href='borrow_book.php';</script>";
+            echo "<script>alert('Sách hiện đã hết.'); window.location.href='borrow_book.php';</script>";
             exit();
         }
 
-        // Trừ kho
         $stmt_upd = $conn->prepare("UPDATE books SET quantity = quantity - 1 WHERE id = ? AND quantity > 0");
         $stmt_upd->bind_param("i", $book_id);
         $stmt_upd->execute();
@@ -46,31 +42,31 @@ if (isset($_GET['book_id'])) {
         $stmt_upd->close();
 
         if ($affected <= 0) {
-            // Trường hợp hiếm: vừa bị người khác mượn trước
             $conn->rollback();
             echo "<script>alert('Sách vừa hết, vui lòng thử lại.'); window.location.href='borrow_book.php';</script>";
             exit();
         }
 
-        // Tạo phiếu mượn
-        $stmt_ins = $conn->prepare("INSERT INTO loans (user_id, book_id, borrow_date, is_returned) VALUES (?, ?, CURDATE(), 0)");
+        $stmt_ins = $conn->prepare("
+            INSERT INTO loans (user_id, book_id, borrow_date, is_returned)
+            VALUES (?, ?, CURDATE(), 0)
+        ");
         $stmt_ins->bind_param("ii", $user_id, $book_id);
         $stmt_ins->execute();
         $stmt_ins->close();
 
         $conn->commit();
-
         header("Location: loans_user.php");
         exit();
     } catch (Exception $e) {
         $conn->rollback();
-        echo "<script>alert('Lỗi khi mượn sách: " . addslashes($e->getMessage()) . "'); window.location.href='borrow_book.php';</script>";
+        echo "<script>alert('Lỗi khi mượn sách'); window.location.href='borrow_book.php';</script>";
         exit();
     }
 }
 
 // ==========================
-// Fetch all books for display
+// FETCH BOOKS (THÊM IMAGE)
 // ==========================
 $books = [];
 $sql = "SELECT 
@@ -78,6 +74,7 @@ $sql = "SELECT
             books.title,
             books.author,
             books.quantity,
+            books.image,
             categories.name AS category,
             publishers.name AS publisher
         FROM books
@@ -100,6 +97,7 @@ if ($result) {
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
 <div class="nav">
     <a href="borrow_book.php"><strong>Mượn sách</strong></a> |
     <a href="loans_user.php">Sách đã mượn</a> |
@@ -111,6 +109,7 @@ if ($result) {
 
     <table>
         <tr>
+            <th>Ảnh</th>
             <th>Tiêu đề</th>
             <th>Tác giả</th>
             <th>Danh mục</th>
@@ -121,11 +120,18 @@ if ($result) {
         </tr>
 
         <?php if (empty($books)): ?>
-            <tr><td colspan="7" style="text-align:center;">Chưa có sách nào.</td></tr>
+            <tr><td colspan="8" style="text-align:center;">Chưa có sách nào.</td></tr>
         <?php else: ?>
             <?php foreach ($books as $book): ?>
                 <?php $qty = (int)$book['quantity']; ?>
                 <tr>
+                    <td>
+                        <?php if (!empty($book['image'])): ?>
+                            <img src="uploads/books/<?php echo htmlspecialchars($book['image']); ?>" width="60">
+                        <?php else: ?>
+                            —
+                        <?php endif; ?>
+                    </td>
                     <td><?php echo htmlspecialchars($book['title']); ?></td>
                     <td><?php echo htmlspecialchars($book['author']); ?></td>
                     <td><?php echo htmlspecialchars($book['category'] ?? ''); ?></td>
@@ -151,8 +157,8 @@ if ($result) {
                 </tr>
             <?php endforeach; ?>
         <?php endif; ?>
-
     </table>
 </div>
+
 </body>
 </html>

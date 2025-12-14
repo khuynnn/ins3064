@@ -27,7 +27,13 @@ $display_name = !empty($_SESSION['name']) ? $_SESSION['name'] : ($_SESSION['user
 
 // Fetch loans of the logged-in user
 $loans = [];
-$sql = "SELECT loans.id, books.title, loans.borrow_date, loans.is_returned, loans.return_date
+$sql = "SELECT 
+            loans.id,
+            books.title,
+            books.image,
+            loans.borrow_date,
+            loans.is_returned,
+            loans.return_date
         FROM loans
         JOIN books ON loans.book_id = books.id
         WHERE loans.user_id = ?
@@ -65,6 +71,7 @@ $stmt->close();
 
     <table>
         <tr>
+            <th>Ảnh</th>
             <th>Tiêu đề sách</th>
             <th>Ngày mượn</th>
             <th>Trạng thái</th>
@@ -76,18 +83,31 @@ $stmt->close();
             </tr>
         <?php else: ?>
             <?php foreach ($loans as $loan): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($loan['title']); ?></td>
-                    <td><?php echo htmlspecialchars($loan['borrow_date']); ?></td>
-                    <td>
-                        <?php if ((int)$loan['is_returned'] === 1): ?>
-                            Đã trả<?php echo !empty($loan['return_date']) ? " (" . htmlspecialchars($loan['return_date']) . ")" : ""; ?>
-                        <?php else: ?>
-                            Đang mượn
-                        <?php endif; ?>
-                    </td>
-                </tr>
+            <tr>
+                <td style="text-align:center;">
+                    <?php if (!empty($loan['image'])): ?>
+                        <img src="uploads/books/<?php echo htmlspecialchars($loan['image']); ?>"
+                            width="60"
+                            style="border-radius:4px;">
+                    <?php else: ?>
+                        <img src="uploads/books/no-image.png"
+                            width="60"
+                            style="opacity:0.6;">
+                    <?php endif; ?>
+                </td>
+
+                <td><?php echo htmlspecialchars($loan['title']); ?></td>
+                <td><?php echo htmlspecialchars($loan['borrow_date']); ?></td>
+                <td>
+                    <?php if ((int)$loan['is_returned'] === 1): ?>
+                        Đã trả<?php echo !empty($loan['return_date']) ? " (" . htmlspecialchars($loan['return_date']) . ")" : ""; ?>
+                    <?php else: ?>
+                        Đang mượn
+                    <?php endif; ?>
+                </td>
+            </tr>
             <?php endforeach; ?>
+
         <?php endif; ?>
     </table>
 
