@@ -73,3 +73,6 @@ CREATE TABLE loans (
     ON UPDATE CASCADE
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- add image column
+-- ALTER TABLE books ADD image VARCHAR(255) NULL;
