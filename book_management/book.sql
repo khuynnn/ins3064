@@ -75,4 +75,4 @@ CREATE TABLE loans (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- add image column
--- ALTER TABLE books ADD image VARCHAR(255) NULL;
+ALTER TABLE books ADD image VARCHAR(255) NULL;
