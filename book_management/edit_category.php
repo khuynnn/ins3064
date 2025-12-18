@@ -1,90 +1,91 @@
 <?php
-require 'config.php';
+session_start();
+include 'config.php';
 
-if (!isset($_SESSION['username']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
-    exit;
+    exit();
 }
 
-// Get category to edit
+// Get category ID
+$cat_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $category = null;
-if (isset($_GET['id'])) {
-    $catId = intval($_GET['id']);
-    $res = mysqli_query($conn, "SELECT id, name FROM categories WHERE id = $catId");
-    if ($res && mysqli_num_rows($res) > 0) {
-        $category = mysqli_fetch_assoc($res);
-    } else {
-        header("Location: categories.php");
-        exit;
-    }
-} else {
-    header("Location: categories.php");
-    exit;
+
+if ($cat_id > 0) {
+    $stmt = $conn->prepare("SELECT id, name FROM categories WHERE id = ?");
+    $stmt->bind_param("i", $cat_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $category = $result->fetch_assoc();
+    $stmt->close();
 }
 
-$editError = "";
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $newName = mysqli_real_escape_string($conn, $_POST['category_name']);
-    $catId   = intval($_POST['cat_id']);
+if (!$category) {
+    header("Location: categories.php");
+    exit();
+}
 
-    if (!empty($newName)) {
-        $sql = "UPDATE categories SET name = '$newName' WHERE id = $catId";
-        if (mysqli_query($conn, $sql)) {
-            header("Location: categories.php");
-            exit;
-        } else {
-            $editError = "Failed to update category. Please try again.";
-        }
+$update_error = "";
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $name = trim($_POST['name'] ?? '');
+
+    if ($name === "") {
+        $update_error = "Tên danh mục không được để trống.";
     } else {
-        $editError = "Category name cannot be empty.";
+        $stmt2 = $conn->prepare(
+            "UPDATE categories SET name = ? WHERE id = ?"
+        );
+        $stmt2->bind_param("si", $name, $cat_id);
+
+        if ($stmt2->execute()) {
+            $stmt2->close();
+            header("Location: categories.php");
+            exit();
+        } else {
+            $update_error = "Lỗi khi cập nhật danh mục.";
+        }
+        $stmt2->close();
     }
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Edit Category</title>
+    <title>Sửa danh mục</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<div class="nav">
+    <a href="dashboard.php">Tổng quan</a> |
+    <a href="books.php">Sách</a> |
+    <a href="categories.php">Danh mục</a> |
+    <a href="publishers.php">Nhà xuất bản</a> |
+    <a href="loans.php">Mượn/Trả sách</a> |
+    <a href="logout.php">Đăng xuất</a>
+</div>
+
 <div class="container">
+    <h1>Sửa danh mục</h1>
 
-    <h2>Edit Category</h2>
-
-    <!-- Navigation -->
-    <nav class="nav">
-        <a href="dashboard.php">Dashboard</a>
-        <a href="categories.php">Back to Categories</a>
-        <a href="logout.php">Logout</a>
-    </nav>
-
-    <hr>
-
-    <!-- Error message -->
-    <?php if ($editError): ?>
-        <p class="error"><?php echo $editError; ?></p>
+    <?php if (!empty($update_error)): ?>
+        <p class="error"><?php echo htmlspecialchars($update_error); ?></p>
     <?php endif; ?>
 
-    <!-- Edit form -->
-    <?php if ($category): ?>
-        <form method="post" action="edit_category.php?id=<?php echo $category['id']; ?>">
-            <input type="hidden" name="cat_id" value="<?php echo $category['id']; ?>">
+    <form method="post" action="">
+        <label for="name">Tên danh mục:</label><br>
+        <input
+            type="text"
+            id="name"
+            name="name"
+            value="<?php echo htmlspecialchars($category['name']); ?>"
+            required
+        ><br><br>
 
-            <label for="category_name">Category Name</label>
-            <input
-                type="text"
-                name="category_name"
-                id="category_name"
-                value="<?php echo htmlspecialchars($category['name']); ?>"
-                required
-            >
-
-            <button type="submit" class="btn">Save Changes</button>
-        </form>
-    <?php endif; ?>
-
+        <button type="submit">Cập nhật</button>
+        <a href="categories.php" style="margin-left:10px;">Quay lại</a>
+    </form>
 </div>
 
 </body>
